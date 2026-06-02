@@ -233,7 +233,7 @@ Expected: prints `no placeholders ok`.
 Run:
 
 ```powershell
-$content = Get-ChildItem 'docs/02_views','docs/03_adrs' -Filter '*.md' -Recurse | Get-Content -Raw -Encoding utf8
+$content = (Get-ChildItem 'docs/02_views','docs/03_adrs' -Filter '*.md' -Recurse | ForEach-Object { Get-Content $_.FullName -Raw -Encoding utf8 }) -join "`n"
 $terms = @('MQTT','边云协同','TimescaleDB','设备影子','事件驱动','边缘缓存','QAS-001','ADR-001')
 foreach ($term in $terms) {
   if ($content -notlike "*$term*") {
