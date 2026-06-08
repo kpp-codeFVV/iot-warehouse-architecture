@@ -8,7 +8,7 @@
 - Windows PowerShell
 - 可选：Docker Desktop
 
-当前开发机器已验证 Python `.venv` 方式。当前机器未安装 Docker，因此 `docker compose up` 尚未在本机验证。
+当前开发机器已验证 Python `.venv` 方式。Docker Desktop 和 Docker Compose CLI 已安装，但 Docker Desktop 后端服务尚未成功启动；当前阻塞点是 WSL/服务启动需要管理员权限。因此 `docker compose up` 尚未在本机完整验证。
 
 ## 2. 安装依赖
 
@@ -57,11 +57,24 @@ Invoke-RestMethod http://localhost:8003/health
 docker compose up
 ```
 
-该命令会启动 Mosquitto、Redis、TimescaleDB 和三个 FastAPI 服务。当前机器未安装 Docker，因此此命令需要在安装 Docker 后补充验证。
+该命令会启动 Mosquitto、Redis、TimescaleDB 和三个 FastAPI 服务。当前机器已安装 Docker CLI，但 Docker daemon 尚未可用；需要先以管理员权限完成 WSL/Docker Desktop 初始化后再补充验证。
+
+可先检查 Docker CLI：
+
+```powershell
+docker --version
+docker compose version
+```
+
+当前已验证版本：
+
+```text
+Docker version 29.5.2
+Docker Compose version v5.1.4
+```
 
 ## 7. 清理运行数据
 
 ```powershell
 Remove-Item -Recurse -Force runtime -ErrorAction SilentlyContinue
 ```
-

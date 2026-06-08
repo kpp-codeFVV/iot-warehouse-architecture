@@ -1,6 +1,6 @@
 # Load Test Report - IoT 智能仓储监控与告警平台
 
-本文档记录当前原型的本地负载测试设计、执行结果和适用边界。由于当前机器未安装 Docker，本报告只记录 `.venv` 本地 HTTP 串行测试结果，不声称满足生产级 50,000 msg/s。
+本文档记录当前原型的本地负载测试设计、执行结果和适用边界。当前机器已安装 Docker Desktop 和 Docker Compose CLI，但 Docker daemon 尚未成功启动，因此本报告只记录 `.venv` 本地 HTTP 串行测试结果，不声称满足生产级 50,000 msg/s。
 
 ## 1. 测试工具与脚本路径
 
@@ -50,7 +50,7 @@
 
 - 本地测试使用 HTTP 串行请求，不是真实 MQTT 并发上报。
 - 本地存储使用 JSON/JSONL 文件，不是 TimescaleDB。
-- 当前机器未安装 Docker，无法运行 Mosquitto、Redis、TimescaleDB 的组合环境。
+- 当前机器 Docker CLI 已安装，但 Docker daemon 尚未可用，暂时无法运行 Mosquitto、Redis、TimescaleDB 的组合环境。
 - FastAPI 服务以开发方式启动，没有多 worker 或异步批量写入。
 
 ## 6. 优化建议
@@ -64,4 +64,3 @@
 ## 7. 结论
 
 当前负载测试证明脚本和服务链路可运行，但不满足生产吞吐目标，也不能替代正式压测。QAS-002 当前验证结论为 **Partial**：架构设计支撑扩展论证，原型仅完成本地可运行和无错误 smoke test。
-

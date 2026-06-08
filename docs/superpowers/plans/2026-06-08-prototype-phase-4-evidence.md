@@ -104,7 +104,7 @@ Scripts must be runnable with `.venv\Scripts\python.exe` and use only Python sta
 
 - [ ] **Step 3: Write Docker Compose and Makefile**
 
-Docker Compose must define `device-gateway`, `inventory-service`, `alert-service`, `mosquitto`, `redis`, and `timescaledb`, even though Docker is not installed in the current environment.
+Docker Compose must define `device-gateway`, `inventory-service`, `alert-service`, `mosquitto`, `redis`, and `timescaledb`, while documenting whether Docker daemon verification is available in the current environment.
 
 - [ ] **Step 4: Verify scripts compile**
 
@@ -137,7 +137,7 @@ git commit -m "feat: add prototype contracts and validation scripts"
 
 - [ ] **Step 1: Write evidence documents**
 
-Evidence documents must distinguish verified local results from Docker-dependent steps that could not be run because Docker is not installed.
+Evidence documents must distinguish verified local results from Docker-dependent steps that could not be run because Docker daemon is unavailable.
 
 - [ ] **Step 2: Write runbooks**
 
@@ -223,4 +223,4 @@ Expected: prints `evidence traceability ok`.
 
 - Spec coverage: The plan covers the required runnable services, REST API contracts, event schemas, validation scripts, Docker Compose topology, Phase 4 evidence documents, and runbooks.
 - Placeholder scan: The plan contains no unresolved placeholder instructions.
-- Environment note: Docker is unavailable on the current machine, so Docker Compose can be written but not locally executed here.
+- Environment note: Docker CLI may be installed while Docker daemon remains unavailable; Docker Compose can be written even when not locally executable here.

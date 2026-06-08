@@ -25,7 +25,6 @@
 
 ## 关键说明
 
-- 本地机器未安装 Docker，因此 Docker Compose 一键启动尚未在本机验证。
+- 本地机器已安装 Docker Desktop 和 Docker Compose CLI，但 Docker daemon 尚未成功启动；Docker Compose 一键启动尚未在本机验证。
 - LoadTest 当前只证明脚本和服务链路可运行，不代表生产吞吐。
 - 安全性、OTA、多仓库边缘节点属于文档设计和演进范围，不作为当前最小原型主线。
-
