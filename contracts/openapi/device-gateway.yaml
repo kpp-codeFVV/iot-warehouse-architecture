@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: device-gateway
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Get gateway health and cache count
+      responses:
+        "200":
+          description: Gateway status
+  /ingest:
+    post:
+      summary: Accept telemetry and forward to inventory-service or edge cache
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../events/telemetry.schema.json
+      responses:
+        "200":
+          description: Accepted telemetry
+        "400":
+          description: Invalid telemetry
+  /cache:
+    get:
+      summary: List cached telemetry messages
+      responses:
+        "200":
+          description: Cached messages
+  /replay:
+    post:
+      summary: Replay cached telemetry to inventory-service
+      responses:
+        "200":
+          description: Replay result
+

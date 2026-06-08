@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: inventory-service
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Get inventory service health
+      responses:
+        "200":
+          description: Service status
+  /telemetry:
+    post:
+      summary: Process telemetry, update device shadow, update inventory, and publish events
+      responses:
+        "200":
+          description: Processing result
+        "400":
+          description: Invalid telemetry
+  /shadows:
+    get:
+      summary: List device shadows
+      responses:
+        "200":
+          description: Device shadows
+  /inventory:
+    get:
+      summary: List simplified inventory state
+      responses:
+        "200":
+          description: Inventory state
+  /events:
+    get:
+      summary: List event channel contents
+      responses:
+        "200":
+          description: Events
+

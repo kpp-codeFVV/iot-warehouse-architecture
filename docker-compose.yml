@@ -1,0 +1,60 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    command: ["mosquitto", "-c", "/mosquitto-no-auth.conf"]
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: warehouse
+      POSTGRES_USER: warehouse
+      POSTGRES_PASSWORD: warehouse
+    ports:
+      - "5432:5432"
+
+  inventory-service:
+    image: python:3.12-slim
+    working_dir: /workspace/apps/inventory-service
+    volumes:
+      - .:/workspace
+    environment:
+      IOT_DATA_DIR: /workspace/runtime
+      PYTHONPATH: /workspace
+    command: sh -c "pip install -r /workspace/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8002"
+    ports:
+      - "8002:8002"
+
+  alert-service:
+    image: python:3.12-slim
+    working_dir: /workspace/apps/alert-service
+    volumes:
+      - .:/workspace
+    environment:
+      IOT_DATA_DIR: /workspace/runtime
+      PYTHONPATH: /workspace
+    command: sh -c "pip install -r /workspace/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8003"
+    ports:
+      - "8003:8003"
+
+  device-gateway:
+    image: python:3.12-slim
+    working_dir: /workspace/apps/device-gateway
+    volumes:
+      - .:/workspace
+    environment:
+      IOT_DATA_DIR: /workspace/runtime
+      PYTHONPATH: /workspace
+      INVENTORY_URL: http://inventory-service:8002
+    command: sh -c "pip install -r /workspace/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8001"
+    ports:
+      - "8001:8001"
+    depends_on:
+      - inventory-service
+

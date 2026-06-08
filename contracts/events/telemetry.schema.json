@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TelemetryMessage",
+  "type": "object",
+  "required": ["messageId", "deviceId", "warehouseId", "deviceType", "timestamp", "readings"],
+  "properties": {
+    "messageId": { "type": "string" },
+    "deviceId": { "type": "string" },
+    "warehouseId": { "type": "string" },
+    "deviceType": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "readings": {
+      "type": "object",
+      "properties": {
+        "temperature": { "type": "number" },
+        "humidity": { "type": "number" },
+        "shelfId": { "type": "string" },
+        "skuId": { "type": "string" },
+        "quantity": { "type": "integer" }
+      },
+      "additionalProperties": true
+    }
+  }
+}
+

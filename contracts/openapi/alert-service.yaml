@@ -1,0 +1,24 @@
+openapi: 3.0.3
+info:
+  title: alert-service
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Get alert service health
+      responses:
+        "200":
+          description: Service status
+  /process-events:
+    post:
+      summary: Consume abnormal events and create alert records
+      responses:
+        "200":
+          description: Created alerts
+  /alerts:
+    get:
+      summary: List alert records
+      responses:
+        "200":
+          description: Alert records
+
