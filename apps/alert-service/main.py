@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,25 @@ from libs.iot_core import Store, process_alert_events, read_jsonl
 
 app = FastAPI(title="alert-service", version="0.1.0")
 store = Store()
+_processor_task: asyncio.Task | None = None
+
+
+async def event_processor_loop() -> None:
+    while True:
+        process_alert_events(store)
+        await asyncio.sleep(0.5)
+
+
+@app.on_event("startup")
+async def start_event_processor() -> None:
+    global _processor_task
+    _processor_task = asyncio.create_task(event_processor_loop())
+
+
+@app.on_event("shutdown")
+async def stop_event_processor() -> None:
+    if _processor_task:
+        _processor_task.cancel()
 
 
 @app.get("/health")
@@ -29,4 +49,3 @@ def process_events() -> dict[str, Any]:
 def alerts() -> dict[str, Any]:
     rows = read_jsonl(store.alerts_path)
     return {"count": len(rows), "items": rows}
-
