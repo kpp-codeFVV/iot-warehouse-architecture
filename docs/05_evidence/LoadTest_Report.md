@@ -1,6 +1,6 @@
 # Load Test Report - IoT 智能仓储监控与告警平台
 
-本文档记录当前原型的本地负载测试设计、执行结果和适用边界。当前机器已安装 Docker Desktop 和 Docker Compose CLI，但 Docker daemon 尚未成功启动，因此本报告只记录 `.venv` 本地 HTTP 串行测试结果，不声称满足生产级 50,000 msg/s。
+本文档记录当前原型的本地负载测试设计、执行结果和适用边界。当前机器已完成 Docker Desktop + WSL2 初始化，并已通过 Docker Compose 启动完整原型环境。本文档中的本地负载测试仍为 HTTP smoke test，不声称满足生产级 50,000 msg/s。
 
 ## 1. 测试工具与脚本路径
 
@@ -24,7 +24,7 @@
 .\.venv\Scripts\python.exe scripts/load-test/local_load.py --count 10 --abnormal-every 5
 ```
 
-结果：
+早期 `.venv` 串行测试结果：
 
 ```json
 {
@@ -35,12 +35,30 @@
 }
 ```
 
+Docker Compose 环境下重新执行：
+
+```powershell
+docker compose -p iot-warehouse up -d
+.\.venv\Scripts\python.exe scripts/load-test/local_load.py --count 10 --abnormal-every 5
+```
+
+结果：
+
+```json
+{
+  "count": 10,
+  "errors": 0,
+  "elapsedSeconds": 0.351,
+  "messagesPerSecond": 28.47
+}
+```
+
 ## 4. 与质量属性目标对比
 
 | 指标 | 题目目标 | 当前原型结果 | 结论 |
 | --- | --- | --- | --- |
 | 设备接入规模 | 10,000+ 设备 | 未在当前机器验证 | Partial |
-| 消息吞吐 | 50,000 msg/s | 本地串行 HTTP 约 0.24 msg/s | Fail for production target |
+| 消息吞吐 | 50,000 msg/s | Docker HTTP smoke test 约 28.47 msg/s | Partial |
 | 错误率 | 应尽量接近 0 | 10 条消息错误数 0 | Pass for smoke test |
 | 告警链路 | 异常告警 ≤ 5s | PoC-001 约 4.16s | Pass for PoC |
 
@@ -50,7 +68,7 @@
 
 - 本地测试使用 HTTP 串行请求，不是真实 MQTT 并发上报。
 - 本地存储使用 JSON/JSONL 文件，不是 TimescaleDB。
-- 当前机器 Docker CLI 已安装，但 Docker daemon 尚未可用，暂时无法运行 Mosquitto、Redis、TimescaleDB 的组合环境。
+- 当前 Docker Compose 环境已可运行，但测试脚本仍是 HTTP 串行请求，没有使用真实 MQTT 并发上报。
 - FastAPI 服务以开发方式启动，没有多 worker 或异步批量写入。
 
 ## 6. 优化建议

@@ -8,7 +8,7 @@
 - Windows PowerShell
 - 可选：Docker Desktop
 
-当前开发机器已验证 Python `.venv` 方式。Docker Desktop 和 Docker Compose CLI 已安装，但 Docker Desktop 后端服务尚未成功启动；当前阻塞点是 WSL/服务启动需要管理员权限。因此 `docker compose up` 尚未在本机完整验证。
+当前开发机器已验证 Python `.venv` 方式，也已验证 Docker Desktop + WSL2 方式。Docker Compose 启动时需要显式指定项目名，因为项目目录包含中文，直接 `docker compose up` 可能报 `project name must not be empty`。
 
 ## 2. 安装依赖
 
@@ -54,10 +54,16 @@ Invoke-RestMethod http://localhost:8003/health
 如果机器已安装 Docker Desktop：
 
 ```powershell
-docker compose up
+docker compose -p iot-warehouse up
 ```
 
-该命令会启动 Mosquitto、Redis、TimescaleDB 和三个 FastAPI 服务。当前机器已安装 Docker CLI，但 Docker daemon 尚未可用；需要先以管理员权限完成 WSL/Docker Desktop 初始化后再补充验证。
+后台启动：
+
+```powershell
+docker compose -p iot-warehouse up -d
+```
+
+该命令会启动 Mosquitto、Redis、TimescaleDB 和三个 FastAPI 服务。
 
 可先检查 Docker CLI：
 
@@ -71,6 +77,21 @@ docker compose version
 ```text
 Docker version 29.5.2
 Docker Compose version v5.1.4
+```
+
+当前已验证容器：
+
+- `iot-warehouse-device-gateway-1`
+- `iot-warehouse-inventory-service-1`
+- `iot-warehouse-alert-service-1`
+- `iot-warehouse-mosquitto-1`
+- `iot-warehouse-redis-1`
+- `iot-warehouse-timescaledb-1`
+
+停止 Docker 环境：
+
+```powershell
+docker compose -p iot-warehouse down
 ```
 
 ## 7. 清理运行数据
