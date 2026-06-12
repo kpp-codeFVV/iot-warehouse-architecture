@@ -1,6 +1,6 @@
 # Deployment View - IoT 智能仓储监控与告警平台
 
-本文档描述生产环境部署拓扑和本地课程原型之间的映射关系。
+本文档描述生产环境部署拓扑和本地验证环境之间的映射关系。
 
 ## 生产部署拓扑
 
@@ -65,11 +65,11 @@ flowchart TB
 | 数据库故障 | TimescaleDB 主从或定期备份，原型中记录恢复边界 | 可靠性 |
 | 告警服务积压 | 事件通道保留未消费消息，告警服务水平扩展 | 实时性、可伸缩性 |
 
-## 本地原型映射
+## 本地验证环境映射
 
-课程原型使用 Docker Compose 运行一个简化环境：
+本地验证环境使用 Docker Compose 运行一个简化环境：
 
-| 生产元素 | 本地原型映射 |
+| 生产元素 | 本地验证映射 |
 | --- | --- |
 | Edge Node | `mosquitto` 容器 + `device-gateway` 容器 |
 | Cloud service replicas | 单实例 `inventory-service` 和 `alert-service` |

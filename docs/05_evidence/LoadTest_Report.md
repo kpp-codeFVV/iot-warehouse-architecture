@@ -86,7 +86,7 @@ Extra data: line 17 column 2
 {"service":"alert-service","status":"ok"}
 ```
 
-恢复后重新执行主 Demo：`send_sample.py --abnormal --low-stock` 成功，单元测试 `pytest tests -q` 为 `4 passed`。
+恢复后重新执行主流程验证：`send_sample.py --abnormal --low-stock` 成功，单元测试 `pytest tests -q` 为 `4 passed`。
 
 ## 4. 与质量属性目标对比
 

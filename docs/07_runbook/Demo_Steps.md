@@ -1,8 +1,8 @@
-# Demo Steps - IoT 智能仓储监控与告警平台
+# Local Verification Steps - IoT 智能仓储监控与告警平台
 
-本文档给出答辩时可以演示的最小 Demo 流程。
+本文档给出本地验证关键架构行为的最小流程。
 
-## Demo 目标
+## 验证目标
 
 展示以下架构行为：
 
@@ -12,7 +12,7 @@
 - ADR-005：事件驱动告警流水线。
 - ADR-006：边缘缓存与恢复补传。
 
-## Demo 1：异常温度告警
+## 验证 1：异常温度告警
 
 1. 启动三个服务，见 `docs/07_runbook/Local_Setup.md`。
 2. 发送异常温度和低库存样本：
@@ -34,7 +34,7 @@ Invoke-RestMethod http://localhost:8003/alerts
 - `inventory-service` 生成 `REPLENISHMENT_REQUIRED` 事件。
 - `alert-service` 自动生成 1 条 `HIGH_TEMPERATURE` 告警。
 
-## Demo 2：云端不可用时边缘缓存
+## 验证 2：云端不可用时边缘缓存
 
 1. 只启动 `device-gateway`，并设置错误的 inventory 地址：
 
@@ -57,7 +57,7 @@ Invoke-RestMethod http://localhost:8001/cache
 
 4. 预期结果：`count` 为 1，说明 gateway 没有丢弃消息。
 
-## Demo 3：缓存补传脚本
+## 验证 3：缓存补传脚本
 
 运行：
 
@@ -76,20 +76,20 @@ Invoke-RestMethod http://localhost:8001/cache
 }
 ```
 
-## Demo 4：本地负载 smoke test
+## 验证 4：本地负载 smoke test
 
 ```powershell
 .\.venv\Scripts\python.exe scripts/load-test/local_load.py --count 10 --abnormal-every 5
 ```
 
-该测试只证明脚本和服务链路可运行，不代表生产吞吐。正式报告中需要说明本地测试边界。
+该测试只证明脚本和服务链路可运行，不代表生产吞吐。系统报告中需要说明本地测试边界。
 
-## 答辩讲法
+## 说明要点
 
-可以这样解释：
+可以这样说明：
 
 ```text
-我们不是做完整仓储系统，而是用最小原型证明架构决策。
+当前版本不是完整仓储系统，而是用最小验证环境证明关键架构决策。
 异常温度上报后，inventory-service 产生异常事件，alert-service 自动消费事件并生成告警。
 当云端不可用时，device-gateway 会把消息写入 Edge Cache，恢复后再补传。
 这些行为分别对应 ADR-005 和 ADR-006，也对应 QAS-001 和 QAS-003。

@@ -7,11 +7,11 @@
 | 变更ID | 目标版本 | 变更类型 | 破坏性影响 | 影响对象 | 迁移策略 | 关联ADR/QAS |
 | --- | --- | --- | --- | --- | --- | --- |
 | BC-001 | v1.1 | 事件契约 | 遥测事件和异常事件新增 `schemaVersion`、`eventId` 幂等字段，旧消费者如果严格校验字段可能拒绝消息 | `device-gateway`, `inventory-service`, `alert-service`, `contracts/events/*.json` | 先发布兼容版本 Schema；消费者允许未知字段；日志确认 7 天无拒绝后将 `schemaVersion` 标记为必填 | ADR-005, QAS-001, QAS-007, QAS-009 |
-| BC-002 | v1.1 | 设备标识 | `deviceId` 命名从自由字符串收敛为 `{warehouseId}-{type}-{number}`，历史设备 ID 需要映射 | 设备注册表、设备影子、历史遥测查询、Demo 脚本 | 建立 device alias 表；API 同时接受旧 ID 和新 ID；历史数据查询返回 canonical deviceId | ADR-001, ADR-004, QAS-004, QAS-006 |
+| BC-002 | v1.1 | 设备标识 | `deviceId` 命名从自由字符串收敛为 `{warehouseId}-{type}-{number}`，历史设备 ID 需要映射 | 设备注册表、设备影子、历史遥测查询、验证脚本 | 建立 device alias 表；API 同时接受旧 ID 和新 ID；历史数据查询返回 canonical deviceId | ADR-001, ADR-004, QAS-004, QAS-006 |
 | BC-003 | v2.0 | 消息中间件 | 事件通道从 Redis Stream 或简化实现迁移到 Kafka/RabbitMQ/云消息服务，消费者 offset、重试和死信机制改变 | 事件发布者、事件消费者、部署脚本、运维监控 | 增加 EventBus 抽象；先双写旧通道和新通道；对比事件数量和告警结果一致后切流 | ADR-005, QAS-001, QAS-002, QAS-009 |
 | BC-004 | v2.0 | 数据库 Schema | TimescaleDB 遥测表改为 hypertable，并增加保留、压缩和索引策略，历史查询 SQL 可能变化 | `inventory-service`, 报表查询、历史数据迁移脚本 | 先创建新表和迁移脚本；按时间窗口回填；用只读校验比较查询数量、时间范围和聚合结果 | ADR-003, QAS-005 |
 | BC-005 | v2.0 | 安全机制 | 设备接入从简化凭证升级为 mTLS、证书轮换和 Topic ACL，未注册设备会被 Broker 拒绝 | MQTT 客户端、Broker 配置、设备注册、运维流程 | 分阶段启用：记录违规 -> 灰度阻断 -> 全量强制；提供证书签发和吊销流程 | ADR-001, QAS-006 |
-| BC-006 | v2.0 | REST API 版本 | REST API 从无版本路径演进为 `/v1` 和 `/v2`，部分响应字段变为嵌套对象 | OpenAPI 文档、Demo 脚本、外部查询方 | 保留 `/v1` 至少一个版本周期；新增 `/v2` OpenAPI；Demo 脚本同时支持两个版本参数 | ADR-002, ADR-004, QAS-004, QAS-005 |
+| BC-006 | v2.0 | REST API 版本 | REST API 从无版本路径演进为 `/v1` 和 `/v2`，部分响应字段变为嵌套对象 | OpenAPI 文档、验证脚本、外部查询方 | 保留 `/v1` 至少一个版本周期；新增 `/v2` OpenAPI；验证脚本同时支持两个版本参数 | ADR-002, ADR-004, QAS-004, QAS-005 |
 | BC-007 | v1.1 | 设备影子模型 | 设备影子从最后状态扩展为 `desired`、`reported`、`version`、`ackAt`，旧查询结果结构发生变化 | `inventory-service`, 查询 API, OTA 规划 | API 默认返回兼容摘要；新增详细端点 `/devices/{id}/shadow`；升级文档解释 desired/reported 含义 | ADR-004, QAS-004, QAS-008 |
 | BC-008 | v2.0 | OTA 工作流 | OTA 从文档设计演进为真实任务流，设备配置下发、升级状态和失败重试成为独立事件 | Edge 节点、设备影子、OTA 服务、设备客户端 | 先只对测试设备启用；按批次发布；失败设备自动暂停并保留旧版本；所有 OTA 事件写入追溯日志 | ADR-002, ADR-004, QAS-008 |
 | BC-009 | v2.0 | 部署拓扑 | Docker Compose 单机部署演进为 Kubernetes 或云容器平台，服务发现、配置和日志路径变化 | 运维脚本、运行手册、健康检查、日志采集 | 保留本地 Compose 作为开发环境；新增生产部署清单；运行手册分为 Local 和 Production 两套 | ADR-002, QAS-002, QAS-003 |
