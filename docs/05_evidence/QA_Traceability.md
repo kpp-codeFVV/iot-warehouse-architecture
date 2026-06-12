@@ -1,6 +1,6 @@
 # QA Traceability Matrix - IoT 智能仓储监控与告警平台
 
-此矩阵展示从质量属性场景到 ADR、视图和验证证据的闭环。验证结论使用 Pass、Partial、Fail 表示。
+此矩阵用于核对质量属性场景、ADR、视图和验证证据之间是否能对应起来。验证结论使用 Pass、Pass for prototype、Partial、Fail 表示。
 
 | QAS编号 | 质量场景 | 相关ADR | 相关视图 | 验证证据 | 验证结论 |
 | --- | --- | --- | --- | --- | --- |
@@ -20,11 +20,11 @@
 | --- | --- | --- |
 | Pass | 2 | QAS-001、QAS-004 已通过本地原型或单元测试验证 |
 | Pass for prototype | 2 | QAS-003、QAS-009 在最小原型中成立 |
-| Partial | 5 | 需要 Docker、真实中间件、生产安全或演进阶段继续验证 |
+| Partial | 5 | 已有设计或局部验证，但还需要真实中间件、生产安全、数据库存储或演进阶段继续验证 |
 | Fail | 0 | 当前没有完全失败的质量场景，但 QAS-002 只完成 smoke test |
 
 ## 关键说明
 
 - 本地机器已完成 Docker Desktop + WSL2 初始化，`docker compose -p iot-warehouse up -d` 已在本机验证。由于项目目录包含中文，Compose 命令需要显式指定 `-p iot-warehouse`。
-- LoadTest 当前只证明脚本和服务链路可运行，不代表生产吞吐。
+- LoadTest 当前证明脚本和服务链路可运行，并暴露 JSON/JSONL 文件存储不适合并发写入；它不代表生产吞吐。
 - 安全性、OTA、多仓库边缘节点属于文档设计和演进范围，不作为当前最小原型主线。
