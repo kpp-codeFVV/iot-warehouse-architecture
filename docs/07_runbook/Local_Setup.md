@@ -1,14 +1,14 @@
 # Local Setup - IoT 智能仓储监控与告警平台
 
-本文档说明如何在本地运行当前原型。
+本文档说明如何在本地运行当前验证环境。
 
 ## 1. 环境要求
 
 - Python 3.12
 - Windows PowerShell
-- 可选：Docker Desktop
+- Docker Desktop
 
-当前开发机器已验证 Python `.venv` 方式，也已验证 Docker Desktop + WSL2 方式。Docker Compose 启动时需要显式指定项目名，因为项目目录包含中文，直接 `docker compose up` 可能报 `project name must not be empty`。
+本项目支持 Python `.venv` 方式和 Docker Desktop + WSL2 方式。Docker Compose 启动时需要显式指定项目名，因为项目目录包含中文，直接 `docker compose up` 可能报 `project name must not be empty`。
 
 ## 2. 安装依赖
 
