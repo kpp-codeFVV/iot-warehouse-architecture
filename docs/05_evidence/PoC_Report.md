@@ -96,6 +96,14 @@ Remove-Item -Recurse -Force runtime -ErrorAction SilentlyContinue
 - 方法：先写入较新的设备状态，再尝试用 5 分钟前的旧状态更新同一设备。
 - 验证标准：旧状态不覆盖新状态。
 
+### 实验过程
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\test_iot_core.py::test_stale_shadow_update_is_rejected -q
+```
+
+测试用例先构造同一设备的较新遥测消息并更新设备影子，再构造时间更早的遥测消息进行更新。预期结果是旧消息被识别为 `stale_message`，设备影子仍保留较新的 `lastSeenAt` 和 `reported` 状态。
+
 ### 结果数据
 
 ```text
@@ -106,4 +114,4 @@ tests/test_iot_core.py::test_stale_shadow_update_is_rejected passed
 
 - 假设是否成立：成立。
 - 对架构决策的影响：支持 ADR-004，但生产环境仍需引入状态版本号和 desired/reported 确认机制。
-
+- 后续行动：在 v1.1 演进中补充设备影子版本号、期望状态确认和乱序消息处理策略。

@@ -56,21 +56,21 @@ docker compose -p iot-warehouse up -d
 }
 ```
 
-后续扩大消息数量后，串行 HTTP 测试结果如下：
+后续扩大消息数量后，串行 HTTP 测试结果如下。当前脚本只统计总耗时和错误数，没有逐请求记录延迟，因此 P50/P95/P99 标记为未采集。
 
-| 命令 | 消息数 | 错误数 | 耗时 | 吞吐 |
-| --- | ---: | ---: | ---: | ---: |
-| `local_load.py --count 100 --abnormal-every 10` | 100 | 0 | 3.202s | 31.23 msg/s |
-| `local_load.py --count 1000 --abnormal-every 50` | 1000 | 0 | 26.127s | 38.27 msg/s |
+| 命令 | 消息数 | 错误数 | 耗时 | TPS/msg/s | P50 延迟 | P95 延迟 | P99 延迟 |
+| --- | ---: | ---: | ---: | ---: | --- | --- | --- |
+| `local_load.py --count 100 --abnormal-every 10` | 100 | 0 | 3.202s | 31.23 | 未采集 | 未采集 | 未采集 |
+| `local_load.py --count 1000 --abnormal-every 50` | 1000 | 0 | 26.127s | 38.27 | 未采集 | 未采集 | 未采集 |
 
 ### 3.3 临时并发 HTTP 测试
 
 为了观察并发请求下的瓶颈，又使用临时 Python 并发脚本发起多线程 HTTP 请求。该脚本没有纳入正式代码，只作为本次测试记录。
 
-| 测试 | 消息数 | 并发线程 | HTTP 请求错误数 | 耗时 | 表面吞吐 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 并发 HTTP | 1000 | 50 | 0 | 4.430s | 225.74 msg/s |
-| 并发 HTTP | 5000 | 100 | 0 | 21.012s | 237.96 msg/s |
+| 测试 | 消息数 | 并发线程 | HTTP 请求错误数 | 耗时 | TPS/msg/s | P50 延迟 | P95 延迟 | P99 延迟 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
+| 并发 HTTP | 1000 | 50 | 0 | 4.430s | 225.74 | 未采集 | 未采集 | 未采集 |
+| 并发 HTTP | 5000 | 100 | 0 | 21.012s | 237.96 | 未采集 | 未采集 | 未采集 |
 
 并发测试后，`device-gateway /health` 显示 `cachedMessages: 7010`。继续检查发现 `inventory-service` 对大量 `/telemetry` 请求返回 `400 Bad Request`，错误详情为：
 
@@ -110,6 +110,7 @@ Extra data: line 17 column 2
 ## 6. 优化建议
 
 - 将 `local_load.py` 改造为正式并发压测脚本，或使用 k6/Locust。
+- 在正式压测脚本中记录逐请求耗时，补齐 P50/P95/P99 延迟。
 - 使用真实 MQTT 并发发布方式模拟设备接入，而不是只走 HTTP。
 - 将 inventory 和 alert 的存储从 JSON/JSONL 迁移到 TimescaleDB/PostgreSQL。
 - gateway 到 inventory 的转发改为批量或异步队列。
