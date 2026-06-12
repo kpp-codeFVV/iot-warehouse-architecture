@@ -15,31 +15,31 @@
 - 方法：启动 `device-gateway`、`inventory-service`、`alert-service`，使用 `scripts/data-gen/send_sample.py --abnormal --low-stock` 发送异常温度和低库存样本。
 - 验证标准：生成 `HIGH_TEMPERATURE` 告警，且告警创建时间与样本时间差不超过 5 秒。
 
-### 实验过程
+### 关键代码片段
 
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn main:app --app-dir apps/inventory-service --port 8002
-.\.venv\Scripts\python.exe -m uvicorn main:app --app-dir apps/alert-service --port 8003
-$env:INVENTORY_URL='http://localhost:8002'
-.\.venv\Scripts\python.exe -m uvicorn main:app --app-dir apps/device-gateway --port 8001
-.\.venv\Scripts\python.exe scripts/data-gen/send_sample.py --abnormal --low-stock
+`scripts/data-gen/send_sample.py` 负责构造异常温度和低库存样本，并通过 `device-gateway` 写入系统入口。
+
+```python
+payload = sample_telemetry(abnormal=args.abnormal, low_stock=args.low_stock)
+result = post_json(args.url, payload)
+print(json.dumps({"payload": payload, "result": result}, ensure_ascii=False, indent=2))
 ```
 
-### 结果数据
+`libs/iot_core.py` 中的事件构造逻辑负责把异常温度和低库存状态转成事件。
 
-本地执行结果：
+```python
+if temperature is not None and float(temperature) >= TEMP_THRESHOLD:
+    events.append({"eventType": "HIGH_TEMPERATURE", "value": float(temperature)})
 
-| 指标 | 结果 |
-| --- | --- |
-| 输入温度 | 39.8 |
-| 告警阈值 | 38.0 |
-| 生成事件数 | 2 |
-| 生成告警数 | 1 |
-| 告警类型 | HIGH_TEMPERATURE |
-| 告警创建时间差 | 约 4.16 秒 |
-| 结论 | Pass |
+if inventory_item and inventory_item["currentQuantity"] <= LOW_STOCK_THRESHOLD:
+    events.append({"eventType": "REPLENISHMENT_REQUIRED"})
+```
 
-同时生成 `REPLENISHMENT_REQUIRED` 事件，证明库存低于阈值时可以触发补货事件。
+### 结果截图
+
+![PoC-001 运行结果](screenshots/poc-001-result.png)
+
+截图显示：样本发送后生成 2 条事件，其中 1 条为 `HIGH_TEMPERATURE`，并由 `alert-service` 生成 1 条告警。
 
 ### 结论
 
@@ -60,23 +60,22 @@ $env:INVENTORY_URL='http://localhost:8002'
 - 方法：将两条设备消息写入 Edge Cache，再调用 `process_telemetry` 模拟云端恢复后的补传处理。
 - 验证标准：缓存消息被接受处理，生成事件，补传后缓存清空。
 
-### 实验过程
+### 关键代码片段
 
-```powershell
-Remove-Item -Recurse -Force runtime -ErrorAction SilentlyContinue
-.\.venv\Scripts\python.exe scripts/fault-injection/cloud_outage_demo.py
+`scripts/fault-injection/cloud_outage_demo.py` 先把消息写入 Edge Cache，再模拟云端恢复后的补传处理。
+
+```python
+payloads = [sample_telemetry(abnormal=True), sample_telemetry(low_stock=True)]
+cached = [append_edge_cache(store, payload, reason="simulated cloud outage") for payload in payloads]
+replay_results = [process_telemetry(store, row["message"]) for row in cached]
+rewrite_edge_cache(store, [])
 ```
 
-### 结果数据
+### 结果截图
 
-```json
-{
-  "cachedBeforeReplay": 2,
-  "cacheRowsVisible": 0,
-  "replayAccepted": 2,
-  "eventsCreated": 2
-}
-```
+![PoC-002 运行结果](screenshots/poc-002-result.png)
+
+截图显示：缓存消息能够被补传处理，补传后 Edge Cache 清空，并生成对应事件。
 
 ### 结论
 
@@ -96,19 +95,23 @@ Remove-Item -Recurse -Force runtime -ErrorAction SilentlyContinue
 - 方法：先写入较新的设备状态，再尝试用 5 分钟前的旧状态更新同一设备。
 - 验证标准：旧状态不覆盖新状态。
 
-### 实验过程
+### 关键代码片段
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_iot_core.py::test_stale_shadow_update_is_rejected -q
+`tests/test_iot_core.py` 中的测试用例先写入较新的设备状态，再用 5 分钟前的旧消息更新同一设备。
+
+```python
+assert update_shadow(store, newer)["updated"] is True
+result = update_shadow(store, older)
+
+assert result["updated"] is False
+assert result["shadow"]["reported"]["temperature"] == 26
 ```
 
-测试用例先构造同一设备的较新遥测消息并更新设备影子，再构造时间更早的遥测消息进行更新。预期结果是旧消息被识别为 `stale_message`，设备影子仍保留较新的 `lastSeenAt` 和 `reported` 状态。
+### 结果截图
 
-### 结果数据
+![PoC-003 运行结果](screenshots/poc-003-result.png)
 
-```text
-tests/test_iot_core.py::test_stale_shadow_update_is_rejected passed
-```
+截图显示：旧消息覆盖测试通过，设备影子保留较新的状态值。
 
 ### 结论
 
