@@ -75,15 +75,5 @@ Invoke-RestMethod http://localhost:8001/cache
 .\.venv\Scripts\python.exe scripts/load-test/local_load.py --count 10 --abnormal-every 5
 ```
 
-该测试只证明脚本和服务链路可运行，不代表生产吞吐。系统报告中需要说明本地测试边界。
+该测试只证明脚本和服务链路可运行，不代表生产吞吐。
 
-## 说明要点
-
-可以这样说明：
-
-```text
-当前版本不是完整仓储系统，而是用最小验证环境证明关键架构决策。
-异常温度上报后，inventory-service 产生异常事件，alert-service 自动消费事件并生成告警。
-当云端不可用时，device-gateway 会把消息写入 Edge Cache，恢复后再补传。
-这些行为分别对应 ADR-005 和 ADR-006，也对应 QAS-001 和 QAS-003。
-```
