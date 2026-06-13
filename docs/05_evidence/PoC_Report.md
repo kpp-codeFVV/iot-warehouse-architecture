@@ -39,7 +39,7 @@ if inventory_item and inventory_item["currentQuantity"] <= LOW_STOCK_THRESHOLD:
 
 ![PoC-001 运行结果](screenshots/poc-001-result.png)
 
-截图显示：样本发送后生成 2 条事件，其中 1 条为 `HIGH_TEMPERATURE`，并由 `alert-service` 生成 1 条告警。
+样本发送后生成 2 条事件，其中 1 条为 `HIGH_TEMPERATURE`，并由 `alert-service` 生成 1 条告警。
 
 ### 结论
 
@@ -75,7 +75,7 @@ rewrite_edge_cache(store, [])
 
 ![PoC-002 运行结果](screenshots/poc-002-result.png)
 
-截图显示：缓存消息能够被补传处理，补传后 Edge Cache 清空，并生成对应事件。
+缓存消息能够被补传处理，补传后 Edge Cache 清空，并生成对应事件。
 
 ### 结论
 
@@ -111,7 +111,7 @@ assert result["shadow"]["reported"]["temperature"] == 26
 
 ![PoC-003 运行结果](screenshots/poc-003-result.png)
 
-截图显示：旧消息覆盖测试通过，设备影子保留较新的状态值。
+旧消息覆盖测试通过，设备影子保留较新的状态值。
 
 ### 结论
 

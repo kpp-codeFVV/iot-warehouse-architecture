@@ -24,7 +24,7 @@ flowchart TB
             inv2[inventory-service replica B]
             alert2[alert-service replica B]
         end
-        events[(Redis Stream / Managed MQ)]
+        events[(TimescaleDB Event Table / Managed MQ)]
         db[(TimescaleDB Primary + Replica)]
         monitor[Monitoring + Logs]
     end
@@ -73,8 +73,6 @@ flowchart TB
 | --- | --- |
 | Edge Node | `mosquitto` 容器 + `device-gateway` 容器 |
 | Cloud service replicas | 单实例 `inventory-service` 和 `alert-service` |
-| Managed MQ / Redis Stream | `redis` 容器或简化事件通道 |
+| Event Table / Managed MQ | TimescaleDB/PostgreSQL 事件表 |
 | TimescaleDB Primary + Replica | 单个 `timescaledb` 容器 |
 | Monitoring + Logs | 容器日志、健康检查 API 和验证脚本输出 |
-
-该映射不声称达到生产级可用性，但能证明架构决策的关键行为。

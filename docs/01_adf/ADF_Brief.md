@@ -111,13 +111,12 @@ As an operations engineer, I want the edge gateway to cache messages when cloud 
 - IoT 接入优先使用 MQTT，Broker 使用 Eclipse Mosquitto。
 - 时序数据存储优先使用 TimescaleDB。
 - 本地环境使用 Docker Compose 启动。
-- 架构图使用 Mermaid 或 PlantUML 代码形式，避免截图。
+- 架构图使用 Mermaid 或 PlantUML 代码形式。
 
 ### 4.2 业务约束
 
 - 仓库现场网络可能不稳定，系统需要允许边缘侧短时自治和恢复补传。
-- 首期版本聚焦设备接入、状态维护、异常告警和补货事件，不替代完整 WMS/ERP。
-- 本地验证结果只能说明当前环境边界，不能直接外推到真实生产吞吐。
+- 聚焦设备接入、状态维护、异常告警和补货事件
 
 ### 4.3 组织约束
 

@@ -57,7 +57,7 @@ Accepted
 
 ### 引入的技术债务
 
-原型阶段可使用 Redis Stream 或简化事件通道，生产环境需要评估 Kafka、RabbitMQ 或云消息服务。
+当前验证环境使用 TimescaleDB/PostgreSQL 事件表承载事件通道，生产环境需要根据吞吐目标评估 Kafka、RabbitMQ 或云消息服务。
 
 ## 验证方式
 

@@ -20,8 +20,8 @@ sequenceDiagram
     Gateway->>Inventory: POST /telemetry
     Inventory->>DB: write telemetry and device shadow
     Inventory->>Inventory: evaluate temperature threshold
-    Inventory->>Events: publish HIGH_TEMPERATURE event
-    Events-->>Alert: consume event
+    Inventory->>Events: write HIGH_TEMPERATURE event
+    Events-->>Alert: consume event row
     Alert->>DB: create alert record
 ```
 
@@ -69,9 +69,8 @@ sequenceDiagram
     Gateway->>Inventory: POST /telemetry
     Inventory->>Inventory: update shelf inventory state
     Inventory->>Inventory: compare current quantity with threshold
-    Inventory->>Events: publish REPLENISHMENT_REQUIRED event
-    Events-->>WMS: future integration event
+    Inventory->>Events: write REPLENISHMENT_REQUIRED event
+    Events-->>WMS: replenishment integration event
 ```
 
-质量属性响应分析：该流程对应 QAS-009。库存状态更新与补货事件发布由 `inventory-service` 负责，未来可以增加独立 replenishment-service 或 WMS 集成消费者，而不改变设备接入链路。
-
+质量属性响应分析：该流程对应 QAS-009。库存状态更新与补货事件发布由 `inventory-service` 负责，外部可通过 replenishment-service 或 WMS 集成消费者接入，而不改变设备接入链路。

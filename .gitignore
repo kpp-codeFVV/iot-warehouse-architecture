@@ -1,6 +1,8 @@
 .superpowers/
+work_notes/
 .venv/
 runtime/
+.pytest_cache/
 __pycache__/
 *.pyc
-
+《软件体系结构》课程期末大作业 (2).pdf

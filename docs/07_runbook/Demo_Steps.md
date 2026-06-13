@@ -15,20 +15,13 @@
 ## 验证 1：异常温度告警
 
 1. 启动三个服务，见 `docs/07_runbook/Local_Setup.md`。
-2. 发送异常温度和低库存样本：
+2. 发送异常温度和低库存样本并查询告警：
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/data-gen/send_sample.py --abnormal --low-stock
+.\demo.bat
 ```
 
-3. 等待 1 到 2 秒，查询事件和告警：
-
-```powershell
-Invoke-RestMethod http://localhost:8002/events
-Invoke-RestMethod http://localhost:8003/alerts
-```
-
-4. 预期结果：
+3. 预期结果：
 
 - `inventory-service` 生成 `HIGH_TEMPERATURE` 事件。
 - `inventory-service` 生成 `REPLENISHMENT_REQUIRED` 事件。

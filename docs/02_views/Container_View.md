@@ -19,19 +19,19 @@ flowchart LR
     subgraph CloudLayer[云端服务层]
         inventory[inventory-service<br/>FastAPI]
         alert[alert-service<br/>FastAPI]
-        events[(Event Channel<br/>Redis Stream)]
+        events[(Event Table / Event Channel<br/>TimescaleDB)]
         db[(TimescaleDB<br/>PostgreSQL extension)]
     end
 
-    external[未来 WMS/ERP]
+    external[外部 WMS/ERP]
 
     sim -- MQTT JSON --> broker
     broker -- MQTT subscribe --> gateway
     gateway -- local write --> edgeCache
     gateway -- REST JSON --> inventory
     inventory -- SQL --> db
-    inventory -- event JSON --> events
-    alert -- consume event --> events
+    inventory -- write event rows --> events
+    alert -- consume event rows --> events
     alert -- SQL --> db
     inventory -- REST/event JSON --> external
 ```
@@ -46,7 +46,7 @@ flowchart LR
 | Edge Cache | SQLite 或文件队列 | 暂存云端不可用时的关键设备消息 | 本地读写 |
 | inventory-service | Python + FastAPI | 维护设备影子、库存状态、补货事件和遥测入库 | REST API |
 | alert-service | Python + FastAPI | 消费异常事件，生成告警记录，提供告警查询 | REST API, event consumer |
-| Event Channel | Redis Stream | 传递异常事件和补货事件，解耦生产者与消费者 | Stream API |
+| Event Channel | TimescaleDB/PostgreSQL event table | 传递异常事件和补货事件，解耦生产者与消费者 | SQL / event polling |
 | TimescaleDB | PostgreSQL + TimescaleDB | 存储传感器时序数据、设备影子、库存和告警 | SQL |
 
 ## 容器间通信
@@ -57,8 +57,8 @@ flowchart LR
 | MQTT Broker | device-gateway | MQTT subscribe | JSON | 异步 | 网关订阅设备 Topic |
 | device-gateway | Edge Cache | 本地文件/SQLite | JSON | 同步 | 云端不可用时保存待补传消息 |
 | device-gateway | inventory-service | HTTP REST | JSON | 同步 | 转发有效遥测数据 |
-| inventory-service | Event Channel | Redis Stream | JSON | 异步 | 发布异常事件和补货事件 |
-| alert-service | Event Channel | Redis Stream | JSON | 异步 | 消费异常事件 |
+| inventory-service | Event Channel | SQL insert | Rows/JSONB | 异步 | 发布异常事件和补货事件 |
+| alert-service | Event Channel | SQL polling | Rows/JSONB | 异步 | 消费异常事件 |
 | inventory-service / alert-service | TimescaleDB | SQL | Rows | 同步 | 持久化业务和时序数据 |
 
 ## ADR 追溯
@@ -71,4 +71,3 @@ flowchart LR
 | ADR-004 | inventory-service 维护设备影子 |
 | ADR-005 | Event Channel 解耦告警流水线 |
 | ADR-006 | device-gateway 和 Edge Cache 支持缓存补传 |
-

@@ -60,13 +60,13 @@ flowchart TB
 | Device Shadow Manager | 更新设备最后状态、在线状态和期望状态 | 内部服务 | Repository |
 | Inventory Updater | 根据重量和 RFID 事件更新简化库存 | 内部服务 | Repository |
 | Rule Evaluator | 判断温度、重量和库存阈值是否触发事件 | 内部服务 | 告警规则 |
-| Event Publisher | 发布异常事件和补货事件 | Redis Stream | Event Channel |
+| Event Publisher | 发布异常事件和补货事件 | SQL insert | Event Channel |
 | Query API | 查询设备影子、库存状态和历史数据 | REST | Repository |
 | Repository | 封装 TimescaleDB 读写 | SQL | TimescaleDB |
 
 ## alert-service 说明
 
-`alert-service` 的核心行为是消费异常事件并生成告警记录。它的组件边界较简单，主要包括 Event Consumer、Alert Rule Mapper、Alert Repository 和 Alert Query API。该服务在 `Dynamic_Views.md` 和 ADR-005 中展开，因为其价值主要体现在事件驱动告警流水线的运行时行为。
+`alert-service` 的核心行为是消费异常事件并生成告警记录。它的组件边界较简单，主要包括 Event Consumer、Alert Rule Mapper、Alert Repository 和 Alert Query API。该服务在 `Dynamic_Views.md` 和 ADR-005 中展开，其价值主要体现在事件驱动告警流水线的运行时行为。
 
 ## 质量属性追溯
 
@@ -77,4 +77,3 @@ flowchart TB
 | QAS-004 | Device Shadow Manager 支撑离线设备状态查询 |
 | QAS-007 | Rule Evaluator 使告警规则变化不影响设备接入 |
 | QAS-009 | Inventory Updater 和 Event Publisher 支撑补货事件 |
-

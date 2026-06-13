@@ -12,7 +12,7 @@
 | 设备影子与库存 | 平台内部能力 | inventory-service | Device Shadow Manager, Inventory Updater | inventory-service | inventory-service replica | 是 | 设备状态和库存状态职责一致 |
 | 告警服务 | 平台内部能力 | alert-service | alert-service 说明 | alert-service | alert-service replica | 是 | 异常事件消费和告警记录职责一致 |
 | 时序数据存储 | 平台内部能力 | TimescaleDB | Repository 依赖 TimescaleDB | TimescaleDB | TimescaleDB Primary + Replica | 是 | 统一作为遥测和业务数据存储 |
-| 事件通道 | 平台内部能力 | Event Channel | Event Publisher | Event Channel | Redis Stream / Managed MQ | 是 | 原型与生产命名存在映射关系 |
+| 事件通道 | 平台内部能力 | Event Channel | Event Publisher | Event Channel | TimescaleDB Event Table / Managed MQ | 是 | 本地验证与生产扩展命名存在映射关系 |
 
 ## 2. ADR 到视图追溯
 
@@ -46,17 +46,12 @@
 | 设备到 Broker | MQTT / JSON / 异步 | Device publish telemetry | 设备网络到 Edge Node | 是 | 设备只访问边缘 Broker |
 | Broker 到 gateway | MQTT subscribe / JSON / 异步 | Broker deliver message | Edge Node 内部通信 | 是 | 网关订阅设备 Topic |
 | gateway 到 inventory | HTTP REST / JSON / 同步 | POST /telemetry | Edge 到 Cloud 经私有网络 | 是 | 同步转发失败时进入边缘缓存 |
-| inventory 到 Event Channel | Redis Stream / JSON / 异步 | publish HIGH_TEMPERATURE | 云端服务网络 | 是 | 事件驱动告警和补货 |
+| inventory 到 Event Channel | SQL event row / JSONB / 异步 | publish HIGH_TEMPERATURE | 云端服务网络 | 是 | 事件驱动告警和补货 |
 | alert 到数据库 | SQL / Rows / 同步 | create alert record | 数据网络 | 是 | 告警记录持久化 |
 
 ## 5. 原型阶段接受的限制
 
 - Docker Compose 原型使用单实例服务，生产视图中的多副本和多可用区属于架构目标，不在本地环境中完整实现。
 - 原型阶段安全策略采用简化设备凭证校验，生产环境需要补充双向 TLS、证书轮换和 Topic ACL。
-- 原型阶段事件通道可使用 Redis Stream 或简化实现，生产环境需要结合吞吐目标评估 Kafka、RabbitMQ 或云消息服务。
+- 本地验证环境使用 TimescaleDB/PostgreSQL 事件表承载事件通道，生产环境需要结合吞吐目标评估 Kafka、RabbitMQ 或云消息服务。
 - TimescaleDB 原型使用单节点部署，生产环境需要补充备份、保留策略、压缩策略和容量规划。
-- OTA 不作为本阶段代码原型实现，只在设备影子和演进路线中保留架构设计位置。
-
-## 6. 结论
-
-Phase 2 视图、ADR 和质量属性场景之间命名一致、职责一致、通信关系一致。所有题目二要求的关键架构决策点都已映射到至少一条 ADR，并在至少一个架构视图中体现。

@@ -54,6 +54,22 @@ Invoke-RestMethod http://localhost:8003/health
 如果机器已安装 Docker Desktop：
 
 ```powershell
+.\start.bat
+```
+
+该脚本会启动 Mosquitto、TimescaleDB 和三个 FastAPI 服务，并自动检查 8001、8002、8003 三个健康检查接口。
+
+启动后可以运行：
+
+```powershell
+.\demo.bat
+```
+
+该脚本会发送一条异常温度和低库存样本，并查询告警结果。
+
+也可以手动运行：
+
+```powershell
 docker compose -p iot-warehouse up
 ```
 
@@ -63,7 +79,7 @@ docker compose -p iot-warehouse up
 docker compose -p iot-warehouse up -d
 ```
 
-该命令会启动 Mosquitto、Redis、TimescaleDB 和三个 FastAPI 服务。
+该命令会启动 Mosquitto、TimescaleDB 和三个 FastAPI 服务。
 
 可先检查 Docker CLI：
 
@@ -85,13 +101,12 @@ Docker Compose version v5.1.4
 - `iot-warehouse-inventory-service-1`
 - `iot-warehouse-alert-service-1`
 - `iot-warehouse-mosquitto-1`
-- `iot-warehouse-redis-1`
 - `iot-warehouse-timescaledb-1`
 
 停止 Docker 环境：
 
 ```powershell
-docker compose -p iot-warehouse down
+.\stop.bat
 ```
 
 ## 7. 清理运行数据

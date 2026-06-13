@@ -1,12 +1,8 @@
 # IoT 智能仓储监控与告警平台
 
-本项目是《软件体系结构》课程期末大作业选题二“物联网智能仓储管理系统”的架构设计与本地验证工程。
-
 ## 项目目标
 
 项目聚焦物流仓储场景，通过模拟温湿度传感器、重量传感器、RFID 扫码设备和 AGV 状态设备，验证 IoT 设备接入、边云协同、设备影子、时序数据存储、事件驱动告警和边缘缓存补传等关键架构决策。
-
-本项目不实现完整 WMS 或 ERP 系统。代码用于验证关键架构决策是否可运行、可观察、可追溯。
 
 ## 项目结构
 
@@ -20,7 +16,15 @@
 
 ## 本地运行
 
-由于项目目录包含中文，Docker Compose 建议显式指定项目名：
+安装并打开 Docker Desktop，可以直接双击项目根目录下的 `start.bat`，或在 PowerShell / cmd 里运行：
+
+```powershell
+.\start.bat
+```
+
+脚本会启动 Mosquitto、TimescaleDB、`device-gateway`、`inventory-service` 和 `alert-service`，并自动检查三个 HTTP 服务的 `/health` 接口。
+
+也可以手动使用 Docker Compose。由于项目目录包含中文，Docker Compose 建议显式指定项目名：
 
 ```powershell
 docker compose -p iot-warehouse up -d
@@ -37,14 +41,13 @@ curl http://localhost:8003/health
 主流程验证：
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\data-gen\send_sample.py --abnormal --low-stock
-curl http://localhost:8003/alerts
+.\demo.bat
 ```
 
 停止环境：
 
 ```powershell
-docker compose -p iot-warehouse down
+.\stop.bat
 ```
 
 更完整的步骤见 `docs/07_runbook/Local_Setup.md` 和 `docs/07_runbook/Demo_Steps.md`。

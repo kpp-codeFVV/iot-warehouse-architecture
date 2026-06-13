@@ -32,22 +32,3 @@
 1. **设备接入链路**：MQTT Broker 和 `device-gateway` 是否能承受设备消息。
 2. **告警链路**：异常数据是否能在 5 秒内生成告警。
 3. **可靠性链路**：云端不可用时 Edge Cache 是否能保存并恢复补传。
-
-## 3. Phase 4 验证映射
-
-| 验证方式 | 覆盖风险 | 验证目标 | 输出文件 |
-| --- | --- | --- | --- |
-| PoC-001 异常温度告警 | RISK-002, RISK-003 | 验证 QAS-001 是否满足 5 秒告警目标 | `docs/05_evidence/PoC_Report.md` |
-| PoC-002 边缘缓存补传 | RISK-004, RISK-005 | 验证 QAS-003 中云端恢复后的补传能力 | `docs/05_evidence/PoC_Report.md` |
-| 本地负载测试 | RISK-001, RISK-006 | 记录 MQTT 接入、gateway 转发和 TimescaleDB 写入边界 | `docs/05_evidence/LoadTest_Report.md` |
-| 故障注入 | RISK-003, RISK-004, RISK-010 | 模拟服务宕机、云端不可用和恢复过程 | `docs/05_evidence/FaultInjection.md` |
-| 质量属性追溯矩阵 | RISK-008, RISK-009, RISK-012 | 明确哪些质量目标已验证、部分验证或只完成设计 | `docs/05_evidence/QA_Traceability.md` |
-
-## 4. 风险接受说明
-
-当前验证版本的目标是证明关键架构决策，而不是达到生产级 IoT 平台能力。因此以下风险在当前阶段可接受，但必须在文档中说明：
-
-- 单机 Docker Compose 不能代表生产多可用区部署。
-- 简化认证不能完全代表生产级双向认证。
-- 本地压测结果只能说明验证环境边界，不能直接声称满足 50,000 msg/s。
-- OTA 和多仓库边缘节点只进入演进计划，不作为当前核心链路。
