@@ -9,7 +9,7 @@ from fastapi import FastAPI
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from libs.iot_core import Store, process_alert_events, read_jsonl
+from libs.iot_core import Store, process_alert_events
 
 
 app = FastAPI(title="alert-service", version="0.1.0")
@@ -47,5 +47,5 @@ def process_events() -> dict[str, Any]:
 
 @app.get("/alerts")
 def alerts() -> dict[str, Any]:
-    rows = read_jsonl(store.alerts_path)
+    rows = store.alerts()
     return {"count": len(rows), "items": rows}

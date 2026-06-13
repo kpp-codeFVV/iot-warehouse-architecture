@@ -15,6 +15,16 @@ from libs.iot_core import (
 )
 
 
+def test_store_records_messages_and_events(tmp_path):
+    store = Store(tmp_path)
+    telemetry = sample_telemetry(abnormal=True)
+    events = process_telemetry(store, telemetry)["events"]
+
+    assert store.record_message_once(telemetry) is False
+    assert store.events()[0]["eventType"] == "HIGH_TEMPERATURE"
+    assert store.events()[0]["eventId"] == events[0]["eventId"]
+
+
 def test_abnormal_temperature_creates_alert(tmp_path):
     store = Store(tmp_path)
     telemetry = sample_telemetry(abnormal=True)

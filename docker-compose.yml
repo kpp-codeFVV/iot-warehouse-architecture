@@ -27,9 +27,13 @@ services:
     environment:
       IOT_DATA_DIR: /workspace/runtime
       PYTHONPATH: /workspace
-    command: sh -c "pip install -r /workspace/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8002"
+      DATABASE_URL: postgresql://warehouse:warehouse@timescaledb:5432/warehouse
+      DB_POOL_SIZE: 8
+    command: sh -c "pip install -r /workspace/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8002 --workers 4"
     ports:
       - "8002:8002"
+    depends_on:
+      - timescaledb
 
   alert-service:
     image: python:3.12-slim
@@ -39,9 +43,13 @@ services:
     environment:
       IOT_DATA_DIR: /workspace/runtime
       PYTHONPATH: /workspace
-    command: sh -c "pip install -r /workspace/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8003"
+      DATABASE_URL: postgresql://warehouse:warehouse@timescaledb:5432/warehouse
+      DB_POOL_SIZE: 8
+    command: sh -c "pip install -r /workspace/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8003 --workers 2"
     ports:
       - "8003:8003"
+    depends_on:
+      - timescaledb
 
   device-gateway:
     image: python:3.12-slim
@@ -52,9 +60,10 @@ services:
       IOT_DATA_DIR: /workspace/runtime
       PYTHONPATH: /workspace
       INVENTORY_URL: http://inventory-service:8002
-    command: sh -c "pip install -r /workspace/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8001"
+      DATABASE_URL: postgresql://warehouse:warehouse@timescaledb:5432/warehouse
+      DB_POOL_SIZE: 8
+    command: sh -c "pip install -r /workspace/requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8001 --workers 4"
     ports:
       - "8001:8001"
     depends_on:
       - inventory-service
-

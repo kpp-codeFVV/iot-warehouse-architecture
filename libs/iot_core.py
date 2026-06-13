@@ -59,6 +59,8 @@ class Store:
     def __init__(self, root: Path | None = None) -> None:
         self.root = root or data_dir()
         self.root.mkdir(parents=True, exist_ok=True)
+        self.database_url = os.getenv("DATABASE_URL") if root is None else None
+        self._pool: Any | None = None
         self.shadows_path = self.root / "device_shadows.json"
         self.inventory_path = self.root / "inventory.json"
         self.events_path = self.root / "events.jsonl"
@@ -66,14 +68,132 @@ class Store:
         self.processed_path = self.root / "processed_messages.json"
         self.processed_events_path = self.root / "processed_events.json"
         self.edge_cache_path = self.root / "edge_cache.jsonl"
+        if self.database_url:
+            self._open_pool()
+            self._ensure_schema()
+
+    def _open_pool(self) -> None:
+        from psycopg_pool import ConnectionPool
+
+        max_size = int(os.getenv("DB_POOL_SIZE", "20"))
+        self._pool = ConnectionPool(self.database_url, min_size=1, max_size=max_size, open=False)
+        self._pool.open(wait=True)
+
+    def _jsonb(self, value: Any) -> Any:
+        from psycopg.types.json import Jsonb
+
+        return Jsonb(value)
+
+    def _connection(self) -> Any:
+        if self._pool is None:
+            raise RuntimeError("database pool is not initialized")
+        return self._pool.connection()
+
+    def _ensure_schema(self) -> None:
+        schema = """
+        CREATE TABLE IF NOT EXISTS iot_messages (
+            message_id TEXT PRIMARY KEY,
+            payload JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS device_shadows (
+            device_id TEXT PRIMARY KEY,
+            warehouse_id TEXT NOT NULL,
+            device_type TEXT NOT NULL,
+            connection_status TEXT NOT NULL,
+            last_seen_at TIMESTAMPTZ NOT NULL,
+            reported JSONB NOT NULL,
+            desired JSONB NOT NULL DEFAULT '{}'::jsonb
+        );
+        CREATE TABLE IF NOT EXISTS inventory_items (
+            item_key TEXT PRIMARY KEY,
+            warehouse_id TEXT NOT NULL,
+            shelf_id TEXT NOT NULL,
+            sku_id TEXT NOT NULL,
+            current_quantity INTEGER NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS iot_events (
+            event_id TEXT PRIMARY KEY,
+            event_type TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            warehouse_id TEXT NOT NULL,
+            occurred_at TIMESTAMPTZ NOT NULL,
+            detected_at TIMESTAMPTZ NOT NULL,
+            payload JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_iot_events_created_at ON iot_events (created_at);
+        CREATE INDEX IF NOT EXISTS idx_iot_events_type_created_at ON iot_events (event_type, created_at);
+        CREATE TABLE IF NOT EXISTS iot_alerts (
+            alert_id TEXT PRIMARY KEY,
+            event_id TEXT UNIQUE NOT NULL,
+            alert_type TEXT NOT NULL,
+            device_id TEXT,
+            warehouse_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            payload JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_iot_alerts_created_at ON iot_alerts (created_at);
+        """
+        last_error: Exception | None = None
+        for _ in range(30):
+            try:
+                with self._connection() as conn:
+                    conn.execute(schema)
+                return
+            except Exception as exc:  # pragma: no cover - exercised by Docker startup timing
+                last_error = exc
+                time.sleep(1)
+        raise RuntimeError(f"database schema initialization failed: {last_error}") from last_error
 
     def shadows(self) -> dict[str, Any]:
+        if self.database_url:
+            with self._connection() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT device_id, warehouse_id, device_type, connection_status,
+                           last_seen_at, reported, desired
+                    FROM device_shadows
+                    """
+                ).fetchall()
+            return {
+                row[0]: {
+                    "deviceId": row[0],
+                    "warehouseId": row[1],
+                    "deviceType": row[2],
+                    "connectionStatus": row[3],
+                    "lastSeenAt": row[4].isoformat(),
+                    "reported": row[5],
+                    "desired": row[6],
+                }
+                for row in rows
+            }
         return read_json(self.shadows_path, {})
 
     def save_shadows(self, value: dict[str, Any]) -> None:
         write_json(self.shadows_path, value)
 
     def inventory(self) -> dict[str, Any]:
+        if self.database_url:
+            with self._connection() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT item_key, warehouse_id, shelf_id, sku_id, current_quantity, updated_at
+                    FROM inventory_items
+                    """
+                ).fetchall()
+            return {
+                row[0]: {
+                    "warehouseId": row[1],
+                    "shelfId": row[2],
+                    "skuId": row[3],
+                    "currentQuantity": row[4],
+                    "updatedAt": row[5].isoformat(),
+                }
+                for row in rows
+            }
         return read_json(self.inventory_path, {})
 
     def save_inventory(self, value: dict[str, Any]) -> None:
@@ -91,6 +211,327 @@ class Store:
     def save_processed_events(self, value: set[str]) -> None:
         write_json(self.processed_events_path, sorted(value))
 
+    def record_message_once(self, telemetry: dict[str, Any]) -> bool:
+        if self.database_url:
+            with self._connection() as conn:
+                row = conn.execute(
+                    """
+                    INSERT INTO iot_messages (message_id, payload)
+                    VALUES (%s, %s)
+                    ON CONFLICT (message_id) DO NOTHING
+                    RETURNING message_id
+                    """,
+                    (telemetry["messageId"], self._jsonb(telemetry)),
+                ).fetchone()
+            return row is not None
+
+        processed = self.processed_messages()
+        if telemetry["messageId"] in processed:
+            return False
+        processed.add(telemetry["messageId"])
+        self.save_processed_messages(processed)
+        return True
+
+    def upsert_shadow(self, telemetry: dict[str, Any]) -> dict[str, Any]:
+        if self.database_url:
+            shadow = {
+                "deviceId": telemetry["deviceId"],
+                "warehouseId": telemetry["warehouseId"],
+                "deviceType": telemetry["deviceType"],
+                "connectionStatus": "online",
+                "lastSeenAt": telemetry["timestamp"],
+                "reported": telemetry["readings"],
+                "desired": {},
+            }
+            with self._connection() as conn:
+                row = conn.execute(
+                    """
+                    INSERT INTO device_shadows (
+                        device_id, warehouse_id, device_type, connection_status,
+                        last_seen_at, reported, desired
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, '{}'::jsonb)
+                    ON CONFLICT (device_id) DO UPDATE SET
+                        warehouse_id = EXCLUDED.warehouse_id,
+                        device_type = EXCLUDED.device_type,
+                        connection_status = EXCLUDED.connection_status,
+                        last_seen_at = EXCLUDED.last_seen_at,
+                        reported = EXCLUDED.reported
+                    WHERE device_shadows.last_seen_at <= EXCLUDED.last_seen_at
+                    RETURNING desired
+                    """,
+                    (
+                        telemetry["deviceId"],
+                        telemetry["warehouseId"],
+                        telemetry["deviceType"],
+                        "online",
+                        telemetry["timestamp"],
+                        self._jsonb(telemetry["readings"]),
+                    ),
+                ).fetchone()
+                if row is not None:
+                    shadow["desired"] = row[0]
+                    return {"updated": True, "shadow": shadow}
+            existing = self.shadows()[telemetry["deviceId"]]
+            return {"updated": False, "reason": "stale_message", "shadow": existing}
+
+        shadows = self.shadows()
+        device_id = telemetry["deviceId"]
+        existing = shadows.get(device_id)
+        incoming_ts = parse_time(telemetry["timestamp"])
+        if existing and parse_time(existing["lastSeenAt"]) > incoming_ts:
+            return {"updated": False, "reason": "stale_message", "shadow": existing}
+
+        shadow = {
+            "deviceId": device_id,
+            "warehouseId": telemetry["warehouseId"],
+            "deviceType": telemetry["deviceType"],
+            "connectionStatus": "online",
+            "lastSeenAt": telemetry["timestamp"],
+            "reported": telemetry["readings"],
+            "desired": existing.get("desired", {}) if existing else {},
+        }
+        shadows[device_id] = shadow
+        self.save_shadows(shadows)
+        return {"updated": True, "shadow": shadow}
+
+    def upsert_inventory(self, telemetry: dict[str, Any]) -> dict[str, Any] | None:
+        item = self._inventory_item_from_telemetry(telemetry)
+        if item is None:
+            return None
+        if self.database_url:
+            with self._connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO inventory_items (
+                        item_key, warehouse_id, shelf_id, sku_id, current_quantity, updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (item_key) DO UPDATE SET
+                        warehouse_id = EXCLUDED.warehouse_id,
+                        shelf_id = EXCLUDED.shelf_id,
+                        sku_id = EXCLUDED.sku_id,
+                        current_quantity = EXCLUDED.current_quantity,
+                        updated_at = EXCLUDED.updated_at
+                    """,
+                    (
+                        item["itemKey"],
+                        item["warehouseId"],
+                        item["shelfId"],
+                        item["skuId"],
+                        item["currentQuantity"],
+                        item["updatedAt"],
+                    ),
+                )
+            return {key: value for key, value in item.items() if key != "itemKey"}
+
+        inventory = self.inventory()
+        inventory[item["itemKey"]] = {key: value for key, value in item.items() if key != "itemKey"}
+        self.save_inventory(inventory)
+        return inventory[item["itemKey"]]
+
+    def append_events(self, events: list[dict[str, Any]]) -> None:
+        if not events:
+            return
+        if self.database_url:
+            with self._connection() as conn:
+                for event in events:
+                    conn.execute(
+                        """
+                        INSERT INTO iot_events (
+                            event_id, event_type, message_id, warehouse_id,
+                            occurred_at, detected_at, payload
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (event_id) DO NOTHING
+                        """,
+                        (
+                            event["eventId"],
+                            event["eventType"],
+                            event["messageId"],
+                            event["warehouseId"],
+                            event["occurredAt"],
+                            event["detectedAt"],
+                            self._jsonb(event),
+                        ),
+                    )
+            return
+        for event in events:
+            append_jsonl(self.events_path, event)
+
+    def events(self) -> list[dict[str, Any]]:
+        if self.database_url:
+            with self._connection() as conn:
+                rows = conn.execute("SELECT payload FROM iot_events ORDER BY created_at, event_id").fetchall()
+            return [row[0] for row in rows]
+        return read_jsonl(self.events_path)
+
+    def record_alert_once(self, alert: dict[str, Any]) -> bool:
+        if self.database_url:
+            with self._connection() as conn:
+                row = conn.execute(
+                    """
+                    INSERT INTO iot_alerts (
+                        alert_id, event_id, alert_type, device_id, warehouse_id, status, payload
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (event_id) DO NOTHING
+                    RETURNING alert_id
+                    """,
+                    (
+                        alert["alertId"],
+                        alert["eventId"],
+                        alert["alertType"],
+                        alert.get("deviceId"),
+                        alert["warehouseId"],
+                        alert["status"],
+                        self._jsonb(alert),
+                    ),
+                ).fetchone()
+            return row is not None
+
+        processed = self.processed_events()
+        if alert["eventId"] in processed:
+            return False
+        append_jsonl(self.alerts_path, alert)
+        processed.add(alert["eventId"])
+        self.save_processed_events(processed)
+        return True
+
+    def alerts(self) -> list[dict[str, Any]]:
+        if self.database_url:
+            with self._connection() as conn:
+                rows = conn.execute("SELECT payload FROM iot_alerts ORDER BY created_at, alert_id").fetchall()
+            return [row[0] for row in rows]
+        return read_jsonl(self.alerts_path)
+
+    def process_telemetry_in_database(self, telemetry: dict[str, Any]) -> dict[str, Any]:
+        if not self.database_url:
+            raise RuntimeError("database mode is not enabled")
+
+        shadow = {
+            "deviceId": telemetry["deviceId"],
+            "warehouseId": telemetry["warehouseId"],
+            "deviceType": telemetry["deviceType"],
+            "connectionStatus": "online",
+            "lastSeenAt": telemetry["timestamp"],
+            "reported": telemetry["readings"],
+            "desired": {},
+        }
+        inventory_item = self._inventory_item_from_telemetry(telemetry)
+
+        with self._connection() as conn:
+            message_row = conn.execute(
+                """
+                INSERT INTO iot_messages (message_id, payload)
+                VALUES (%s, %s)
+                ON CONFLICT (message_id) DO NOTHING
+                RETURNING message_id
+                """,
+                (telemetry["messageId"], self._jsonb(telemetry)),
+            ).fetchone()
+            if message_row is None:
+                return {"accepted": True, "duplicate": True, "events": []}
+
+            shadow_row = conn.execute(
+                """
+                INSERT INTO device_shadows (
+                    device_id, warehouse_id, device_type, connection_status,
+                    last_seen_at, reported, desired
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, '{}'::jsonb)
+                ON CONFLICT (device_id) DO UPDATE SET
+                    warehouse_id = EXCLUDED.warehouse_id,
+                    device_type = EXCLUDED.device_type,
+                    connection_status = EXCLUDED.connection_status,
+                    last_seen_at = EXCLUDED.last_seen_at,
+                    reported = EXCLUDED.reported
+                WHERE device_shadows.last_seen_at <= EXCLUDED.last_seen_at
+                RETURNING desired
+                """,
+                (
+                    telemetry["deviceId"],
+                    telemetry["warehouseId"],
+                    telemetry["deviceType"],
+                    "online",
+                    telemetry["timestamp"],
+                    self._jsonb(telemetry["readings"]),
+                ),
+            ).fetchone()
+            shadow_updated = shadow_row is not None
+            if shadow_row is not None:
+                shadow["desired"] = shadow_row[0]
+
+            if inventory_item is not None:
+                conn.execute(
+                    """
+                    INSERT INTO inventory_items (
+                        item_key, warehouse_id, shelf_id, sku_id, current_quantity, updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (item_key) DO UPDATE SET
+                        warehouse_id = EXCLUDED.warehouse_id,
+                        shelf_id = EXCLUDED.shelf_id,
+                        sku_id = EXCLUDED.sku_id,
+                        current_quantity = EXCLUDED.current_quantity,
+                        updated_at = EXCLUDED.updated_at
+                    """,
+                    (
+                        inventory_item["itemKey"],
+                        inventory_item["warehouseId"],
+                        inventory_item["shelfId"],
+                        inventory_item["skuId"],
+                        inventory_item["currentQuantity"],
+                        inventory_item["updatedAt"],
+                    ),
+                )
+
+            events = build_events(telemetry, inventory_item)
+            for event in events:
+                conn.execute(
+                    """
+                    INSERT INTO iot_events (
+                        event_id, event_type, message_id, warehouse_id,
+                        occurred_at, detected_at, payload
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (event_id) DO NOTHING
+                    """,
+                    (
+                        event["eventId"],
+                        event["eventType"],
+                        event["messageId"],
+                        event["warehouseId"],
+                        event["occurredAt"],
+                        event["detectedAt"],
+                        self._jsonb(event),
+                    ),
+                )
+
+        return {
+            "accepted": True,
+            "duplicate": False,
+            "shadowUpdated": shadow_updated,
+            "events": events,
+        }
+
+    def _inventory_item_from_telemetry(self, telemetry: dict[str, Any]) -> dict[str, Any] | None:
+        readings = telemetry["readings"]
+        shelf_id = readings.get("shelfId")
+        sku_id = readings.get("skuId")
+        quantity = readings.get("quantity")
+        if shelf_id is None or sku_id is None or quantity is None:
+            return None
+        key = f"{telemetry['warehouseId']}:{shelf_id}:{sku_id}"
+        return {
+            "itemKey": key,
+            "warehouseId": telemetry["warehouseId"],
+            "shelfId": shelf_id,
+            "skuId": sku_id,
+            "currentQuantity": int(quantity),
+            "updatedAt": telemetry["timestamp"],
+        }
+
 
 def validate_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
     required = ["messageId", "deviceId", "warehouseId", "deviceType", "timestamp", "readings"]
@@ -104,47 +545,11 @@ def validate_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def update_shadow(store: Store, telemetry: dict[str, Any]) -> dict[str, Any]:
-    shadows = store.shadows()
-    device_id = telemetry["deviceId"]
-    existing = shadows.get(device_id)
-    incoming_ts = parse_time(telemetry["timestamp"])
-    if existing and parse_time(existing["lastSeenAt"]) > incoming_ts:
-        return {"updated": False, "reason": "stale_message", "shadow": existing}
-
-    shadow = {
-        "deviceId": device_id,
-        "warehouseId": telemetry["warehouseId"],
-        "deviceType": telemetry["deviceType"],
-        "connectionStatus": "online",
-        "lastSeenAt": telemetry["timestamp"],
-        "reported": telemetry["readings"],
-        "desired": existing.get("desired", {}) if existing else {},
-    }
-    shadows[device_id] = shadow
-    store.save_shadows(shadows)
-    return {"updated": True, "shadow": shadow}
+    return store.upsert_shadow(telemetry)
 
 
 def update_inventory(store: Store, telemetry: dict[str, Any]) -> dict[str, Any] | None:
-    readings = telemetry["readings"]
-    shelf_id = readings.get("shelfId")
-    sku_id = readings.get("skuId")
-    quantity = readings.get("quantity")
-    if shelf_id is None or sku_id is None or quantity is None:
-        return None
-
-    inventory = store.inventory()
-    key = f"{telemetry['warehouseId']}:{shelf_id}:{sku_id}"
-    item = {
-        "warehouseId": telemetry["warehouseId"],
-        "shelfId": shelf_id,
-        "skuId": sku_id,
-        "currentQuantity": int(quantity),
-        "updatedAt": telemetry["timestamp"],
-    }
-    inventory[key] = item
-    store.save_inventory(inventory)
-    return item
+    return store.upsert_inventory(telemetry)
 
 
 def build_events(telemetry: dict[str, Any], inventory_item: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -185,17 +590,15 @@ def build_events(telemetry: dict[str, Any], inventory_item: dict[str, Any] | Non
 
 def process_telemetry(store: Store, payload: dict[str, Any]) -> dict[str, Any]:
     telemetry = validate_telemetry(payload)
-    processed = store.processed_messages()
-    if telemetry["messageId"] in processed:
+    if store.database_url:
+        return store.process_telemetry_in_database(telemetry)
+    if not store.record_message_once(telemetry):
         return {"accepted": True, "duplicate": True, "events": []}
 
     shadow_result = update_shadow(store, telemetry)
     inventory_item = update_inventory(store, telemetry)
     events = build_events(telemetry, inventory_item)
-    for event in events:
-        append_jsonl(store.events_path, event)
-    processed.add(telemetry["messageId"])
-    store.save_processed_messages(processed)
+    store.append_events(events)
     return {
         "accepted": True,
         "duplicate": False,
@@ -205,11 +608,10 @@ def process_telemetry(store: Store, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def process_alert_events(store: Store) -> dict[str, Any]:
-    processed = store.processed_events()
     created: list[dict[str, Any]] = []
-    for event in read_jsonl(store.events_path):
+    for event in store.events():
         event_id = event["eventId"]
-        if event_id in processed or event["eventType"] == "REPLENISHMENT_REQUIRED":
+        if event["eventType"] == "REPLENISHMENT_REQUIRED":
             continue
         alert = {
             "alertId": f"alert-{event_id}",
@@ -222,10 +624,8 @@ def process_alert_events(store: Store) -> dict[str, Any]:
             "status": "OPEN",
             "createdAt": utc_now(),
         }
-        append_jsonl(store.alerts_path, alert)
-        processed.add(event_id)
-        created.append(alert)
-    store.save_processed_events(processed)
+        if store.record_alert_once(alert):
+            created.append(alert)
     return {"created": created, "createdCount": len(created)}
 
 
@@ -279,4 +679,3 @@ def measure_alert_latency_seconds(telemetry: dict[str, Any], alert: dict[str, An
 
 def sleep_ms(milliseconds: int) -> None:
     time.sleep(milliseconds / 1000)
-
