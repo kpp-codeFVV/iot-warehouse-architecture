@@ -46,35 +46,35 @@
 
 #### FR-001 设备数据上报
 
-As a IoT device, I want to publish telemetry data to the platform, so that warehouse status can be monitored continuously.
+IoT 设备需要持续向平台上报温度、湿度、重量、RFID 和 AGV 状态等数据，使仓库运行状态能够被持续监控。
 
 #### FR-002 设备消息接入
 
-As an edge gateway, I want to receive and validate device messages, so that invalid or malformed data does not enter cloud services.
+边缘网关需要接收并校验设备消息，过滤格式错误或不完整的数据，避免异常数据直接进入云端服务。
 
 #### FR-003 设备影子维护
 
-As a warehouse administrator, I want to view the latest known state of each device, so that I can understand device status even when a device is temporarily offline.
+仓库管理员需要查看设备最近一次上报的状态，即使设备临时离线，也能了解该设备的最后已知状态。
 
 #### FR-004 库存状态更新
 
-As a logistics operator, I want RFID and weight data to update simplified inventory state, so that replenishment decisions have a data basis.
+物流运营人员需要根据 RFID 和重量数据更新库存状态，为后续补货判断提供数据依据。
 
 #### FR-005 异常告警生成
 
-As a warehouse administrator, I want abnormal temperature, humidity, weight, and device state changes to generate alerts, so that risks can be handled quickly.
+当温度、湿度、重量或设备状态出现异常变化时，系统需要自动生成告警记录，便于仓库管理员及时处理风险。
 
 #### FR-006 自动补货事件
 
-As a logistics operator, I want low stock levels to trigger replenishment events, so that inventory shortages can be detected early.
+当库存低于设定阈值时，系统需要触发补货事件，使物流运营人员能够尽早发现库存不足问题。
 
 #### FR-007 告警查询
 
-As an operations engineer, I want to query alert records through REST APIs, so that demo, troubleshooting, and evidence collection are easy.
+运维人员需要通过 REST API 查询告警记录，方便演示、故障排查和验证证据整理。
 
 #### FR-008 边缘缓存与补传
 
-As an operations engineer, I want the edge gateway to cache messages when cloud services are unavailable, so that short network failures do not cause critical data loss.
+当云端服务短时间不可用时，边缘网关需要先缓存设备消息，并在服务恢复后补传，避免关键数据丢失。
 
 ### 2.2 架构重要需求（ASR）
 
